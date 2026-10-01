@@ -1,0 +1,30 @@
+services:
+  model-router:
+    build: .
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    depends_on:
+      - litellm
+    networks:
+      - router-net
+
+  litellm:
+    image: ghcr.io/anthropics/litellm:main
+    ports:
+      - "4000:4000"
+    environment:
+      - OPENROUTER_API_KEY=${ROUTER_OR_API_KEY}
+      - LITELLM_MASTER_KEY=${ROUTER_LITELLM_MASTER_KEY}
+    command: --port 4000 --model openrouter
+    restart: unless-stopped
+    networks:
+      - router-net
+
+networks:
+  router-net:
+    driver: bridge
