@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.13-slim
 
 WORKDIR /app
 
@@ -10,8 +10,11 @@ COPY pyproject.toml ./
 COPY src/ ./src/
 COPY data/ ./data/
 
-# Install dependencies
-RUN uv pip install --system -e .
+# Install dependencies only (no package build)
+RUN uv pip install --system --no-build-isolation -c /dev/null \
+    apscheduler fastapi httpx \
+    opentelemetry-api opentelemetry-sdk opentelemetry-exporter-otlp-proto-grpc \
+    pydantic pydantic-settings uvicorn
 
 EXPOSE 8080
 

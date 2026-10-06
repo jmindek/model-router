@@ -44,13 +44,20 @@ def build_category_map(models: list[ModelInfo]) -> dict[str, str]:
     return CATEGORY_MODEL_MAP
 
 
-CLASSIFY_PROMPT = """You are a model router. Classify this request into one category.
-
-Categories: {categories}
-
-User request: "{message}"
-
-Respond with ONLY the category name, nothing else."""
+CLASSIFY_QUESTIONS = {
+    "category": {
+        "instructions": "Classify this request into one category.",
+        "criteria": {
+            "coding": "Code generation, debugging, refactoring, software development",
+            "reasoning": "Math, logic, complex problem solving, step-by-step analysis",
+            "writing": "Creative writing, editing, summarization, content generation",
+            "chat": "Casual conversation, greetings, general questions",
+            "analysis": "Data analysis, research, comparison, evaluation",
+            "creative": "Art, design, brainstorming, ideation",
+        },
+        "type": "choice",
+    }
+}
 
 
 async def classify_request(
@@ -63,28 +70,29 @@ async def classify_request(
 
     build_category_map(models)
 
-    prompt = CLASSIFY_PROMPT.format(
-        categories=", ".join(CATEGORIES),
-        message=message,
-    )
-
     api_base, api_key = _get_router_api()
     if not api_key:
         logger.error("No router API key configured")
         return None
 
     async with httpx.AsyncClient(timeout=15.0) as client:
+        # Normalize base URL: strip trailing /api/v1 for decisions endpoint
+        base = api_base.rstrip("/")
+        if base.endswith("/api/v1"):
+            base = base[: -len("/api/v1")]
+
+        endpoint = f"{base}/api/alpha/decisions"
+
         resp = await client.post(
-            f"{api_base}/chat/completions",
+            endpoint,
             headers={
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
             },
             json={
                 "model": settings.model,
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": 20,
-                "temperature": 0.1,
+                "state": {"message": message},
+                "questions": CLASSIFY_QUESTIONS,
             },
         )
 
@@ -93,14 +101,13 @@ async def classify_request(
             return None
 
         data = resp.json()
-        content = data["choices"][0]["message"]["content"].strip().lower()
-
-        model_id = _category_to_model(content)
+        choice = data["answers"]["category"]["choice"].strip().lower()
+        model_id = _category_to_model(choice)
         if model_id:
-            logger.info(f"Router selected: {model_id} (category: {content})")
+            logger.info(f"Router selected: {model_id} (category: {choice})")
             return model_id
 
-        logger.warning(f"Router returned unparseable response: {content}")
+        logger.warning(f"Router returned unparseable response: {choice}")
         return None
 
 

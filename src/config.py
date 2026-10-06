@@ -36,9 +36,17 @@ class Settings(BaseSettings):
         validation_alias="ROUTER_STATIC_FALLBACK",
     )
 
+    # Model handoff when selected model falls off discount list
+    model_handoff: str = Field(
+        default="next_best", validation_alias="ROUTER_MODEL_HANDOFF"
+    )
+
     # LiteLLM tracing
     litellm_proxy: str = Field(
-        default="http://127.0.0.1:4000", validation_alias="ROUTER_LITELLM_PROXY"
+        default="http://litellm:4000", validation_alias="ROUTER_LITELLM_PROXY"
+    )
+    litellm_master_key: str = Field(
+        default="", validation_alias="LITELLM_MASTER_KEY"
     )
     use_litellm: bool = Field(default=True, validation_alias="ROUTER_USE_LITELLM")
 
@@ -48,6 +56,11 @@ class Settings(BaseSettings):
     )
     refresh_cron: str = Field(
         default="0 2 * * *", validation_alias="ROUTER_REFRESH_CRON"
+    )
+
+    # OpenTelemetry
+    otel_endpoint: str = Field(
+        default="", validation_alias="OTEL_ENDPOINT"
     )
 
     model_config = {"env_file": ".env"}
