@@ -5,28 +5,6 @@ services:
       - "8080:8080"
     env_file:
       - .env
-    environment:
-      - OTEL_ENDPOINT=http://host.docker.internal:3000
     volumes:
       - ./data:/app/data
     restart: unless-stopped
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    networks:
-      - router-net
-
-  litellm:
-    image: ghcr.io/berriai/litellm:main-latest
-    ports:
-      - "4001:4000"
-    environment:
-      - LITELLM_BASE_URL=${LITELLM_BASE_URL}
-      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
-    command: --port 4000 --model openrouter
-    restart: unless-stopped
-    networks:
-      - router-net
-
-networks:
-  router-net:
-    driver: bridge

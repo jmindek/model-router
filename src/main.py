@@ -27,8 +27,6 @@ from src.telemetry import (
     tracer,
 )
 
-import time
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -84,12 +82,8 @@ async def forward_to_openrouter(
     # Convert ChatMessage objects to dicts for JSON serialization
     msg_list = [m.model_dump() if hasattr(m, "model_dump") else m for m in messages]
     """Forward request to OpenRouter with reactive rate limiting."""
-    if settings.use_litellm:
-        api_base = settings.litellm_proxy.rstrip("/")
-        api_key = settings.litellm_master_key
-    else:
-        api_base = settings.inventory_url.removesuffix("/v1").rstrip("/")
-        api_key = settings.openrouter_api_key
+    api_base = settings.inventory_url.removesuffix("/v1").rstrip("/")
+    api_key = settings.openrouter_api_key
 
     max_retries = 3
     for attempt in range(max_retries):
@@ -220,7 +214,9 @@ async def chat_completions(request: ChatCompletionRequest):
             raise
         finally:
             duration_ms = (time.time() - start) * 1000
-            request_duration.record(duration_ms, {"model": model if 'model' in dir() else "unknown"})
+            request_duration.record(
+                duration_ms, {"model": model if "model" in dir() else "unknown"}
+            )
 
 
 @app.get("/healthz")

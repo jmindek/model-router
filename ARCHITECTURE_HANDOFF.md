@@ -4,14 +4,14 @@
 
 Discount Model Router — routes AI inference requests to OpenRouter models that have active discounts (≥50% by default). Uses a "System One" model (e.g., `upstage/solar-decide`) to classify incoming requests into categories and select the best discounted model.
 
-**Target API**: OpenAI-compatible (`/v1/chat/completions`). Compatible with OpenRouter and LiteLLM proxy.
+**Target API**: OpenAI-compatible (`/v1/chat/completions`). Compatible with OpenRouter.
 
 ---
 
 ## Architecture
 
 ```
-Client → FastAPI (port 8080) → Router Logic → OpenRouter API / LiteLLM Proxy
+Client → FastAPI (port 8080) → Router Logic → OpenRouter API
                               │
                               ├── Classify request (System One model)
                               ├── Select discounted model from inventory
@@ -47,7 +47,7 @@ The `/models` endpoint does NOT include discount info. Discount is only in `/mod
 | `tests/conftest.py` | 5 | Test path setup |
 | `.env.example` | 42 | Environment variable template |
 | `Dockerfile` | 19 | Container build |
-| `docker-compose.yml` | 31 | Docker compose (router + LiteLLM `ghcr.io/berriai/litellm:main-latest`) |
+| `docker-compose.yml` | 15 | Docker compose (router only) |
 | `pyproject.toml` | 28 | Project config, dependencies |
 
 ---
@@ -71,8 +71,7 @@ The `/models` endpoint does NOT include discount info. Discount is only in `/mod
 
 ### 3. Main App (`src/main.py`)
 - FastAPI app with `/v1/chat/completions` endpoint.
-- `_get_forward_target()`: Formats base URLs cleanly (stripping trailing slashes and preventing duplicated `/v1/v1/chat/completions` paths) and handles API key assignment for direct OpenRouter vs LiteLLM proxy modes.
-- `forward_to_openrouter()`: Proxies requests with reactive rate limiting. Supports streaming (`StreamingResponse` with generator-managed client lifecycle) and non-streaming responses.
+- `forward_to_openrouter()`: Proxies requests to OpenRouter with reactive rate limiting. Supports streaming and non-streaming responses.
 - Fallback: static model or 503 if no models available.
 
 ### 4. Rate Limiter (`src/rate_limiter.py`)
@@ -98,7 +97,6 @@ The `/models` endpoint does NOT include discount info. Discount is only in `/mod
   - Fixed closed `httpx.AsyncClient` bug during inventory endpoint fetching (`src/inventory.py`).
   - Fixed streaming generator premature context manager exit (`src/main.py`).
   - Fixed `/v1` URL duplication and API key assignment logic (`src/main.py`).
-  - Fixed invalid LiteLLM Docker image (`ghcr.io/berriai/litellm:main-latest`) and environment variable mapping (`docker-compose.yml`).
 
 ---
 
@@ -107,8 +105,7 @@ The `/models` endpoint does NOT include discount info. Discount is only in `/mod
 ### Resolved (P0)
 1. **[FIXED] Closed HTTP Client in Inventory Refresh** — Scoped `httpx.AsyncClient` context around both `/models` and `/endpoints` loop.
 2. **[FIXED] Broken Streaming Lifecycle** — `event_generator` now manages connection closing in a `finally` block upon completion.
-3. **[FIXED] Base URL `/v1` Duplication & API Key Assignment** — Added `_get_forward_target()` helper to strip trailing slashes/v1 duplicates and resolve keys properly.
-4. **[FIXED] Docker Compose LiteLLM Image & Env Var** — Fixed image repository to `ghcr.io/berriai/litellm:main-latest` and env var to `OPENROUTER_API_KEY`.
+3. **[FIXED] Base URL `/v1` Duplication & API Key Assignment** — Added `forward_to_openrouter()` helper to strip trailing slashes/v1 duplicates and forward to OpenRouter.
 
 ### Pending Issues & Open Questions
 

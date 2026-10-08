@@ -1,14 +1,16 @@
 import unittest
+from typing import cast
 from unittest.mock import AsyncMock, MagicMock, patch
-import httpx
 
+import httpx
+from fastapi.responses import StreamingResponse
+
+from src.config import settings
 from src.inventory import fetch_discounted_models
 from src.main import forward_to_openrouter
-from src.config import settings
 
 
 class TestP0Regressions(unittest.IsolatedAsyncioTestCase):
-
     async def test_fetch_discounted_models_concurrent(self):
         """Test concurrent endpoint fetching with semaphore."""
         models_payload = {
@@ -22,7 +24,11 @@ class TestP0Regressions(unittest.IsolatedAsyncioTestCase):
                 "endpoints": [
                     {
                         "provider": "prov1",
-                        "pricing": {"discount": 0.6, "prompt": "0.001", "completion": "0.002"},
+                        "pricing": {
+                            "discount": 0.6,
+                            "prompt": "0.001",
+                            "completion": "0.002",
+                        },
                         "context_length": 4096,
                     }
                 ]
@@ -33,7 +39,11 @@ class TestP0Regressions(unittest.IsolatedAsyncioTestCase):
                 "endpoints": [
                     {
                         "provider": "prov2",
-                        "pricing": {"discount": 0.1, "prompt": "0.001", "completion": "0.002"},
+                        "pricing": {
+                            "discount": 0.1,
+                            "prompt": "0.001",
+                            "completion": "0.002",
+                        },
                         "context_length": 4096,
                     }
                 ]
@@ -71,7 +81,7 @@ class TestP0Regressions(unittest.IsolatedAsyncioTestCase):
         mock_resp.raise_for_status = MagicMock()
         mock_resp.json.return_value = {"choices": [{"message": {"content": "ok"}}]}
 
-        captured_url = None
+        captured_url: str | None = None
 
         async def mock_post(url, **kwargs):
             nonlocal captured_url
@@ -83,43 +93,41 @@ class TestP0Regressions(unittest.IsolatedAsyncioTestCase):
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("httpx.AsyncClient", return_value=mock_client):
-            with patch.object(settings, "use_litellm", False):
-                with patch.object(settings, "inventory_url", "https://openrouter.ai/api/v1"):
-                    with patch.object(settings, "openrouter_api_key", "sk-test"):
-                        await forward_to_openrouter(
-                            messages=[{"role": "user", "content": "hi"}],
-                            model="model-1",
-                            stream=False,
-                        )
-                        self.assertIn("/v1/chat/completions", captured_url)
-                        self.assertNotIn("/v1/v1", captured_url)
-
-        with patch("httpx.AsyncClient", return_value=mock_client):
-            with patch.object(settings, "use_litellm", True):
-                with patch.object(settings, "litellm_proxy", "http://127.0.0.1:4000/"):
-                    await forward_to_openrouter(
-                        messages=[{"role": "user", "content": "hi"}],
-                        model="model-1",
-                        stream=False,
-                    )
-                    self.assertIn("/v1/chat/completions", captured_url)
-                    self.assertNotIn("//v1", captured_url)
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch.object(settings, "inventory_url", "https://openrouter.ai/api/v1"),
+            patch.object(settings, "openrouter_api_key", "sk-test"),
+        ):
+            await forward_to_openrouter(
+                messages=[{"role": "user", "content": "hi"}],
+                model="model-1",
+                stream=False,
+            )
+            assert captured_url is not None
+            self.assertIn("/v1/chat/completions", captured_url)
+            self.assertNotIn("/v1/v1", captured_url)
 
     async def test_forward_to_openrouter_streaming_connection_lifecycle(self):
         """Regression test: Streaming response stream must remain open during iteration."""
-        fake_lines = ['data: {"choices": [{"delta": {"content": "hello"}}]}', 'data: [DONE]']
+        fake_lines = [
+            'data: {"choices": [{"delta": {"content": "hello"}}]}',
+            "data: [DONE]",
+        ]
 
         async def async_line_iterator():
             for line in fake_lines:
                 yield line
 
-        mock_resp = type('MockResp', (), {
-            'status_code': 200,
-            'raise_for_status': MagicMock(),
-            'aiter_lines': staticmethod(async_line_iterator),
-            'aclose': AsyncMock(),
-        })()
+        mock_resp = type(
+            "MockResp",
+            (),
+            {
+                "status_code": 200,
+                "raise_for_status": MagicMock(),
+                "aiter_lines": staticmethod(async_line_iterator),
+                "aclose": AsyncMock(),
+            },
+        )()
 
         mock_stream_ctx = MagicMock()
         mock_stream_ctx.__aenter__ = AsyncMock(return_value=mock_resp)
@@ -137,6 +145,8 @@ class TestP0Regressions(unittest.IsolatedAsyncioTestCase):
                 model="model-1",
                 stream=True,
             )
+
+            response = cast(StreamingResponse, response)
 
             chunks = []
             async for chunk in response.body_iterator:

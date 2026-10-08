@@ -78,8 +78,7 @@ async def classify_request(
     async with httpx.AsyncClient(timeout=15.0) as client:
         # Normalize base URL: strip trailing /api/v1 for decisions endpoint
         base = api_base.rstrip("/")
-        if base.endswith("/api/v1"):
-            base = base[: -len("/api/v1")]
+        base = base.removesuffix("/api/v1")
 
         endpoint = f"{base}/api/alpha/decisions"
 

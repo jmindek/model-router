@@ -41,15 +41,6 @@ class Settings(BaseSettings):
         default="next_best", validation_alias="ROUTER_MODEL_HANDOFF"
     )
 
-    # LiteLLM tracing
-    litellm_proxy: str = Field(
-        default="http://litellm:4000", validation_alias="ROUTER_LITELLM_PROXY"
-    )
-    litellm_master_key: str = Field(
-        default="", validation_alias="LITELLM_MASTER_KEY"
-    )
-    use_litellm: bool = Field(default=True, validation_alias="ROUTER_USE_LITELLM")
-
     # Cache
     cache_file: str = Field(
         default="data/models.json", validation_alias="ROUTER_CACHE_FILE"
@@ -63,7 +54,7 @@ class Settings(BaseSettings):
         default="", validation_alias="OTEL_ENDPOINT"
     )
 
-    model_config = {"env_file": ".env"}
+    model_config = {"env_file": ".env", "extra": "ignore"}
 
 
 settings = Settings()

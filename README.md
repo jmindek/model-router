@@ -26,8 +26,6 @@ docker compose up --build
 | `ROUTER_FALLBACK_MODE` | `static` | `static` = auto-fallback to `ROUTER_STATIC_FALLBACK`; `halt` = return 503 |
 | `ROUTER_STATIC_FALLBACK` | `openrouter/deepseek/deepseek-v3.1` | Fallback model when routing fails |
 | `ROUTER_MODEL_HANDOFF` | `next_best` | Behavior when selected model falls off discount list: `stop`, `next_best`, `keep_current` |
-| `ROUTER_LITELLM_PROXY` | `http://litellm:4000` | LiteLLM proxy URL |
-| `ROUTER_USE_LITELLM` | `true` | Use LiteLLM for tracing |
 | `ROUTER_CACHE_FILE` | `data/models.json` | Path to cached discounted models |
 | `ROUTER_REFRESH_CRON` | `0 2 * * *` | Cron schedule for inventory refresh (default: 2am UTC) |
 | `OTEL_ENDPOINT` | | OpenTelemetry gRPC endpoint (e.g. `http://localhost:4317`). Empty = console exporter |
